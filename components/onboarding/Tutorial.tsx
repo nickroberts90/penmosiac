@@ -206,7 +206,7 @@ export default function Tutorial({ profile, onClose, onComplete }: TutorialProps
                   <Heart size={18} className="text-red-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="font-medium text-sm mb-0.5">Likes earn you points</div>
-                    <p className="text-sm text-gray-500">When readers like your chapters, you earn points. Early likes earn 1pt each. As your total likes grow, each new like earns slightly less — this keeps the economy balanced between new and established authors.</p>
+                    <p className="text-sm text-gray-500">When readers like your chapters, you earn 1 point per like — every time, no matter how many likes you've already earned. Great writing pays off the same whether it's your first chapter or your fiftieth.</p>
                   </div>
                 </div>
                 <div className="card bg-gray-50 border-gray-100 flex items-start gap-3">

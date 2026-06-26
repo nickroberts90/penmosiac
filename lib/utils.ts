@@ -29,10 +29,12 @@ export function truncate(str: string, n: number): string {
   return str.length > n ? str.slice(0, n) + '…' : str
 }
 
+// Flat 1 point per like for every author, regardless of rank or lifetime
+// like count. Bid caps per story tier are the real defense against
+// runaway point accumulation — this stays simple and rewards quality
+// writing equally at every level.
 export function pointsForLike(currentLikes: number): number {
-  if (currentLikes < 10) return 1
-  if (currentLikes < 50) return 0.5
-  return 0.25
+  return 1
 }
 
 export function formatPoints(n: number): string {
