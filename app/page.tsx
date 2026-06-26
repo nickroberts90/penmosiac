@@ -1,10 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import type { Story, Profile, StoryTier, StoryTemplate } from '@/types'
+import type { Story, Profile, StoryTier } from '@/types'
 import { TIER_COLORS, timeUntil, isUrgent, truncate } from '@/lib/utils'
-import { Clock, Plus, BookOpen, Lightbulb, ArrowRight, HelpCircle } from 'lucide-react'
+import { Clock, Plus, BookOpen, HelpCircle } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import CreateStoryModal from '@/components/story/CreateStoryModal'
 import Tutorial from '@/components/onboarding/Tutorial'
@@ -12,53 +11,26 @@ import Link from 'next/link'
 
 const TIERS: (StoryTier | 'All')[] = ['All', 'Open', 'Established', 'Advanced', 'Elite']
 
-const GENRE_COLORS: Record<string, string> = {
-  'Literary Fiction':  'bg-purple-50 text-purple-800 border-purple-200',
-  'Mystery':           'bg-blue-50 text-blue-800 border-blue-200',
-  'Sci-Fi':            'bg-teal-50 text-teal-800 border-teal-200',
-  'Horror':            'bg-red-50 text-red-800 border-red-200',
-  'Historical Fiction':'bg-amber-50 text-amber-800 border-amber-200',
-}
-
 export default function DiscoverPage() {
   const supabase = createClient()
-  const router = useRouter()
   const [stories, setStories] = useState<Story[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [templates, setTemplates] = useState<StoryTemplate[]>([])
   const [tierFilter, setTierFilter] = useState<StoryTier | 'All'>('All')
   const [creating, setCreating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showTutorial, setShowTutorial] = useState(false)
-  const [checkingAuth, setCheckingAuth] = useState(true)
 
-  useEffect(() => { checkAuthThenLoad() }, [tierFilter])
+  useEffect(() => { loadData() }, [tierFilter])
 
-  async function checkAuthThenLoad() {
-    const { data: { user } } = await supabase.auth.getUser()
-
-    // Logged-out visitors go to sign up/in first.
-    // ?browse=1 lets them skip straight to a read-only story feed instead.
-    const params = new URLSearchParams(window.location.search)
-    const browsing = params.get('browse') === '1'
-
-    if (!user && !browsing) {
-      router.push('/auth')
-      return
-    }
-
-    setCheckingAuth(false)
-    loadData(user?.id)
-  }
-
-  async function loadData(userId?: string) {
+  async function loadData() {
     setLoading(true)
-    if (userId) {
-      const { data: p } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       setProfile(p)
       // Show tutorial automatically for new users who haven't completed their sample
       if (p && !p.sample_done) {
-        const seen = localStorage.getItem(`tutorial_seen_${userId}`)
+        const seen = localStorage.getItem(`tutorial_seen_${user.id}`)
         if (!seen) setShowTutorial(true)
       }
     }
@@ -73,75 +45,24 @@ export default function DiscoverPage() {
     const { data } = await q
     setStories(data || [])
 
-    const { data: t } = await supabase.from('story_templates').select('*').order('id')
-    setTemplates(t || [])
-
     setLoading(false)
   }
 
   const showPrompts = !profile || !profile.sample_done
-
-  if (checkingAuth) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Loading…</div>
-  }
 
   return (
     <>
       <Navbar />
       <main className="max-w-5xl mx-auto px-4 py-6">
 
-        {/* Browsing banner for logged-out visitors who chose "just browsing" */}
+        {/* Sign-in nudge for guests — non-blocking, stories are visible either way */}
         {!profile && (
           <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 mb-6 flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <p className="text-sm font-medium text-brand-800">You're browsing as a guest</p>
+              <p className="text-sm font-medium text-brand-800">Browsing as a guest</p>
               <p className="text-xs text-brand-600 mt-0.5">Sign up to like chapters, bid on stories, and start writing.</p>
             </div>
-            <Link href="/auth" className="btn btn-primary btn-sm flex-shrink-0">
-              Sign up free <ArrowRight size={13} />
-            </Link>
-          </div>
-        )}
-
-        {/* Prompts section — shown to logged-out users and those without sample approval */}
-        {showPrompts && templates.length > 0 && (
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Lightbulb size={18} className="text-brand-400" />
-                <h2 className="text-lg font-medium">Writing prompts</h2>
-              </div>
-              <Link href="/prompts" className="text-sm text-brand-500 hover:underline flex items-center gap-1">
-                View all <ArrowRight size={13} />
-              </Link>
-            </div>
-            <p className="text-sm text-gray-500 mb-4">
-              {!profile
-                ? 'New here? Pick a prompt below to write your sample story and unlock the platform.'
-                : 'Pick one of these prompts to write your sample story and unlock bidding.'}
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {templates.map((t, i) => (
-                <div key={t.id} className="card flex flex-col gap-2 hover:border-brand-200 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center text-xs font-medium flex-shrink-0">
-                      {i + 1}
-                    </div>
-                    <span className={`badge ${GENRE_COLORS[t.genre] || 'bg-gray-50 text-gray-600 border-gray-200'}`}>
-                      {t.genre}
-                    </span>
-                  </div>
-                  <div className="font-medium text-sm">{t.title}</div>
-                  <p className="text-xs text-gray-500 leading-relaxed flex-1">{truncate(t.prompt, 120)}</p>
-                  <Link
-                    href={profile ? '/sample' : '/auth'}
-                    className="btn btn-sm btn-primary mt-1 justify-center"
-                  >
-                    {profile ? 'Write this' : 'Sign up to write'} <ArrowRight size={12} />
-                  </Link>
-                </div>
-              ))}
-            </div>
+            <Link href="/auth" className="btn btn-primary btn-sm flex-shrink-0">Sign up free</Link>
           </div>
         )}
 
