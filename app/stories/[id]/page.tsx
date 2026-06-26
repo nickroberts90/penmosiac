@@ -8,7 +8,7 @@ import { getRank } from '@/types'
 import { TIER_COLORS, RANK_COLORS, timeUntil, isUrgent, timeAgo } from '@/lib/utils'
 import {
   BookOpen, Heart, Clock, Lock, CheckCircle, Gavel,
-  Pencil, ChevronLeft, ChevronRight, Share2, ArrowLeft, Bell, BellOff
+  Pencil, ChevronLeft, ChevronRight, Share2, ArrowLeft, Bell, BellOff, ChevronDown
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import BidModal from '@/components/bid/BidModal'
@@ -31,6 +31,7 @@ export default function StoryPage() {
   const [copied, setCopied] = useState(false)
   const [following, setFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [showGuideline, setShowGuideline] = useState(false)
 
   useEffect(() => { loadData() }, [id])
 
@@ -139,14 +140,29 @@ export default function StoryPage() {
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Chapter {reading.chapter_num}</p>
           <h1 className="text-3xl font-medium mb-2 leading-tight">{reading.title}</h1>
           {reading.author_profile && (
-            <p className="text-sm text-gray-400 mb-10">
+            <p className="text-sm text-gray-400 mb-4">
               by{' '}
               <Link href={`/authors/${reading.author_profile.username}`} className="hover:text-brand-600 hover:underline">
                 {reading.author_profile.display_name}
               </Link>
             </p>
           )}
-          <div className="text-[17px] text-gray-700 leading-[1.9] space-y-5">
+
+          {/* Guideline toggle — off by default */}
+          <button
+            onClick={() => setShowGuideline(!showGuideline)}
+            className="text-xs text-gray-400 hover:text-brand-500 flex items-center gap-1 mb-10 transition-colors"
+          >
+            <ChevronDown size={12} className={`transition-transform ${showGuideline ? 'rotate-180' : ''}`} />
+            Story guideline
+          </button>
+          {showGuideline && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-10 text-sm text-blue-900 leading-relaxed">
+              {story.guideline}
+            </div>
+          )}
+
+          <div className="text-[19px] text-gray-700 leading-[1.95] space-y-5">
             {reading.content?.split('\n').map((para, i) =>
               para.trim() ? <p key={i}>{para}</p> : null
             )}

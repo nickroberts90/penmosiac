@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import type { Profile, Story, Chapter } from '@/types'
 import { getRank, RANKS } from '@/types'
 import { RANK_COLORS, TIER_COLORS, formatPoints, timeAgo } from '@/lib/utils'
-import { Heart, BookOpen, Pencil, Star, ArrowLeft, MessageSquare, CheckCircle } from 'lucide-react'
+import { Heart, BookOpen, Pencil, Star, ArrowLeft, MessageSquare, CheckCircle, UserPlus, Clock } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
 
@@ -22,8 +22,18 @@ export default function AuthorPage() {
   const [contributions, setContributions] = useState<ContributedChapter[]>([])
   const [tab, setTab] = useState<'stories' | 'contributions'>('stories')
   const [loading, setLoading] = useState(true)
+  const [friendStatus, setFriendStatus] = useState<'none' | 'friends' | 'incoming' | 'outgoing'>('none')
+  const [canMessageViaStory, setCanMessageViaStory] = useState(false)
 
   useEffect(() => { loadData() }, [username])
+
+  async function sendFriendRequest() {
+    if (!me || !author) return
+    await supabase.from('friendships').insert({
+      requester_id: me.id, recipient_id: author.id, status: 'pending',
+    })
+    setFriendStatus('outgoing')
+  }
 
   async function loadData() {
     // Get logged-in user
@@ -60,6 +70,29 @@ export default function AuthorPage() {
       (ch: any) => ch.story?.original_author !== a.id
     ) as ContributedChapter[]
     setContributions(contrib)
+
+    // Friendship status with this author
+    if (user && user.id !== a.id) {
+      const { data: friendship } = await supabase
+        .from('friendships')
+        .select('*')
+        .or(`and(requester_id.eq.${user.id},recipient_id.eq.${a.id}),and(requester_id.eq.${a.id},recipient_id.eq.${user.id})`)
+        .single()
+
+      if (friendship?.status === 'accepted') setFriendStatus('friends')
+      else if (friendship?.status === 'pending') {
+        setFriendStatus(friendship.requester_id === user.id ? 'outgoing' : 'incoming')
+      } else {
+        setFriendStatus('none')
+      }
+
+      // Can message via shared active story?
+      const { data: canMsg } = await supabase.rpc('are_active_costory_authors', {
+        user_a: user.id, user_b: a.id,
+      })
+      setCanMessageViaStory(!!canMsg)
+    }
+
     setLoading(false)
   }
 
@@ -133,13 +166,28 @@ export default function AuthorPage() {
 
           {/* Actions */}
           {!isOwnProfile && me && (
-            <div className="mt-4 pt-4 border-t border-gray-50 flex gap-2">
-              <Link
-                href={`/messages?with=${author.username}`}
-                className="btn btn-sm gap-1.5"
-              >
-                <MessageSquare size={13} /> Message {author.display_name.split(' ')[0]}
-              </Link>
+            <div className="mt-4 pt-4 border-t border-gray-50 flex gap-2 items-center">
+              {friendStatus === 'friends' && (
+                <Link href={`/messages?with=${author.username}`} className="btn btn-sm gap-1.5">
+                  <MessageSquare size={13} /> Message {author.display_name.split(' ')[0]}
+                </Link>
+              )}
+              {friendStatus === 'none' && (
+                <button onClick={sendFriendRequest} className="btn btn-primary btn-sm gap-1.5">
+                  <UserPlus size={13} /> Add friend
+                </button>
+              )}
+              {friendStatus === 'outgoing' && (
+                <span className="text-xs text-gray-400 flex items-center gap-1"><Clock size={12} /> Friend request sent</span>
+              )}
+              {friendStatus === 'incoming' && (
+                <Link href="/friends" className="btn btn-primary btn-sm">Respond to friend request</Link>
+              )}
+              {friendStatus !== 'friends' && canMessageViaStory && (
+                <Link href={`/messages?with=${author.username}`} className="btn btn-sm gap-1.5 text-gray-500">
+                  <MessageSquare size={13} /> Message (shared story)
+                </Link>
+              )}
             </div>
           )}
           {isOwnProfile && (

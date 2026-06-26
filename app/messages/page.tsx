@@ -58,9 +58,42 @@ export default function MessagesPage() {
       }
     }
 
-    // All authors for new conversation
-    const { data: authors } = await supabase.from('profiles').select('*').neq('id', user.id).limit(20)
-    setAllAuthors(authors || [])
+    // Conversation candidates: friends + co-authors on currently active shared stories
+    const { data: friendRows } = await supabase
+      .from('friendships')
+      .select('requester_id, recipient_id')
+      .eq('status', 'accepted')
+      .or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`)
+
+    const friendIds = (friendRows || []).map(f =>
+      f.requester_id === user.id ? f.recipient_id : f.requester_id
+    )
+
+    // Co-authors on stories I've contributed to that are still active
+    const { data: myChapters } = await supabase
+      .from('chapters').select('story_id').eq('author_id', user.id)
+    const myStoryIds = [...new Set((myChapters || []).map((c: any) => c.story_id))]
+
+    let coAuthorIds: string[] = []
+    if (myStoryIds.length > 0) {
+      const { data: activeStories } = await supabase
+        .from('stories').select('id').in('id', myStoryIds).eq('status', 'active')
+      const activeStoryIds = (activeStories || []).map(s => s.id)
+
+      if (activeStoryIds.length > 0) {
+        const { data: coChapters } = await supabase
+          .from('chapters').select('author_id').in('story_id', activeStoryIds).not('author_id', 'is', null)
+        coAuthorIds = [...new Set((coChapters || []).map((c: any) => c.author_id))].filter(id => id !== user.id)
+      }
+    }
+
+    const allowedIds = [...new Set([...friendIds, ...coAuthorIds])]
+    if (allowedIds.length > 0) {
+      const { data: authors } = await supabase.from('profiles').select('*').in('id', allowedIds)
+      setAllAuthors(authors || [])
+    } else {
+      setAllAuthors([])
+    }
     setLoading(false)
   }
 
@@ -120,9 +153,15 @@ export default function MessagesPage() {
           {/* Sidebar */}
           <div className="w-52 border-r border-gray-100 flex flex-col flex-shrink-0">
             <div className="p-3 border-b border-gray-50">
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Authors</p>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Friends & co-authors</p>
             </div>
             <div className="flex-1 overflow-y-auto">
+              {allAuthors.length === 0 && (
+                <div className="p-4 text-center">
+                  <p className="text-xs text-gray-400 mb-2">No one to message yet.</p>
+                  <a href="/friends" className="text-xs text-brand-500 hover:underline">Add friends →</a>
+                </div>
+              )}
               {allAuthors.map(u => (
                 <div
                   key={u.id}

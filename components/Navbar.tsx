@@ -8,7 +8,7 @@ import { getRank } from '@/types'
 import { RANK_COLORS } from '@/lib/utils'
 import {
   BookOpen, PenSquare, Gavel, MessageSquare, Settings,
-  Coins, LogOut, Lightbulb, Beaker, Menu, X, Search, Trophy
+  Coins, LogOut, Lightbulb, Beaker, Menu, X, Search, Trophy, Users
 } from 'lucide-react'
 import ThemePicker from '@/components/ThemePicker'
 
@@ -19,6 +19,7 @@ const NAV = [
   { href: '/prompts',      label: 'Prompts',      icon: Lightbulb },
   { href: '/mystories',    label: 'My Stories',   icon: PenSquare },
   { href: '/bids',         label: 'Bids',         icon: Gavel },
+  { href: '/friends',      label: 'Friends',      icon: Users },
   { href: '/messages',     label: 'Messages',     icon: MessageSquare },
 ]
 const ADMIN_NAV = { href: '/test', label: 'Test', icon: Beaker }

@@ -5,7 +5,7 @@ import type { Profile, Story, Chapter, Bid } from '@/types'
 import { canBid } from '@/types'
 import { TIER_COLORS, RANK_COLORS, timeUntil, isUrgent } from '@/lib/utils'
 import { getRank } from '@/types'
-import { X, Heart, Clock, Lock, CheckCircle, Gavel, Pencil, ChevronLeft, BookOpen } from 'lucide-react'
+import { X, Heart, Clock, Lock, CheckCircle, Gavel, Pencil, ChevronLeft, BookOpen, ChevronDown } from 'lucide-react'
 import BidModal from '@/components/bid/BidModal'
 import WriteChapterModal from '@/components/chapter/WriteChapterModal'
 
@@ -19,6 +19,7 @@ export default function StoryModal({
   const [bidding, setBidding] = useState(false)
   const [writing, setWriting] = useState<Chapter | null>(null)
   const [reading, setReading] = useState<Chapter | null>(null)
+  const [showGuideline, setShowGuideline] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { loadChapters() }, [story.id])
@@ -93,12 +94,26 @@ export default function StoryModal({
               </p>
               <h2 className="text-2xl font-medium mb-1">{reading.title}</h2>
               {reading.author_profile && (
-                <p className="text-sm text-gray-400 mb-8">
+                <p className="text-sm text-gray-400 mb-4">
                   by {reading.author_profile.display_name}
                 </p>
               )}
-              <div className="prose prose-gray text-gray-700 leading-relaxed text-[16px]"
-                style={{ lineHeight: '1.85' }}>
+
+              <button
+                onClick={() => setShowGuideline(!showGuideline)}
+                className="text-xs text-gray-400 hover:text-brand-500 flex items-center gap-1 mb-8 transition-colors"
+              >
+                <ChevronDown size={12} className={`transition-transform ${showGuideline ? 'rotate-180' : ''}`} />
+                Story guideline
+              </button>
+              {showGuideline && (
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-8 text-sm text-blue-900 leading-relaxed">
+                  {story.guideline}
+                </div>
+              )}
+
+              <div className="prose prose-gray text-gray-700 leading-relaxed text-[18px]"
+                style={{ lineHeight: '1.9' }}>
                 {reading.content?.split('\n').map((para, i) =>
                   para.trim() ? <p key={i} className="mb-5">{para}</p> : null
                 )}

@@ -4,6 +4,18 @@ export type StoryStatus = 'active' | 'complete' | 'removed'
 export type ChapterStatus = 'done' | 'bidding' | 'writing' | 'locked'
 export type BidStatus = 'active' | 'won' | 'lost' | 'forfeited'
 export type SampleStatus = 'pending' | 'approved' | 'rejected'
+export type FriendshipStatus = 'pending' | 'accepted' | 'declined'
+
+export interface Friendship {
+  id: string
+  requester_id: string
+  recipient_id: string
+  status: FriendshipStatus
+  created_at: string
+  responded_at: string | null
+  requester_profile?: Profile
+  recipient_profile?: Profile
+}
 
 export interface Profile {
   id: string
@@ -160,4 +172,3 @@ export function canBid(
   }
   return { ok: true }
 }
-// cache bust 1782491722
