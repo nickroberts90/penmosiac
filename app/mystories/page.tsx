@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import type { Profile, Story, Chapter } from '@/types'
 import { getRank } from '@/types'
 import { RANK_COLORS, TIER_COLORS, formatPoints, timeUntil } from '@/lib/utils'
-import { Pencil, AlertTriangle, Coins, Heart, Zap, Bell, Gavel } from 'lucide-react'
+import { Pencil, AlertTriangle, Coins, Heart, Zap, Bell, Gavel, Clock } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import WriteChapterModal from '@/components/chapter/WriteChapterModal'
 import Link from 'next/link'
@@ -17,11 +17,19 @@ export default function MyStoriesPage() {
   const [myStories, setMyStories] = useState<Story[]>([])
   const [followedStories, setFollowedStories] = useState<Story[]>([])
   const [writingChapters, setWritingChapters] = useState<{ story: Story; chapter: Chapter }[]>([])
+  const [activeBids, setActiveBids] = useState<{ story: Story; chapter: Chapter; myAmount: number }[]>([])
   const [writing, setWriting] = useState<{ story: Story; chapter: Chapter } | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'mine' | 'following'>('mine')
+  const [now, setNow] = useState(Date.now())
 
   useEffect(() => { loadData() }, [])
+
+  // Live-ticking clock for countdowns
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -56,6 +64,22 @@ export default function MyStoriesPage() {
       }
     }
     setWritingChapters(toWrite)
+
+    // Chapters I currently have an active bid on
+    const { data: myBids } = await supabase
+      .from('bids')
+      .select('*, chapter:chapters(*, story:stories(*, author_profile:profiles!original_author(*)))')
+      .eq('bidder_id', user.id)
+      .eq('status', 'active')
+
+    const bidItems: { story: Story; chapter: Chapter; myAmount: number }[] = []
+    for (const b of myBids || []) {
+      const ch = b.chapter as any
+      if (ch?.status === 'bidding' && ch.story) {
+        bidItems.push({ story: ch.story, chapter: ch, myAmount: b.amount })
+      }
+    }
+    setActiveBids(bidItems)
 
     // Stories I'm following
     const { data: follows } = await supabase
@@ -139,6 +163,95 @@ export default function MyStoriesPage() {
             {profile.strikes >= 3 ? ' Bidding suspended for 30 days.' : ' One more miss and bidding will be suspended.'}
           </div>
         )}
+
+        {/* Active countdowns — everything with a live clock you're personally involved in */}
+        {(() => {
+          type CountdownItem = {
+            story: Story
+            label: string
+            deadline: string
+            urgent: boolean
+            kind: 'write' | 'bid'
+            href: string
+          }
+
+          const items: CountdownItem[] = []
+
+          for (const { story, chapter } of writingChapters) {
+            if (chapter.write_deadline) {
+              items.push({
+                story,
+                label: `Ch. ${chapter.chapter_num} due`,
+                deadline: chapter.write_deadline,
+                urgent: new Date(chapter.write_deadline).getTime() - now < 24 * 3600 * 1000,
+                kind: 'write',
+                href: `/stories/${story.id}`,
+              })
+            }
+          }
+          for (const { story, chapter, myAmount } of activeBids) {
+            if (chapter.bid_deadline) {
+              items.push({
+                story,
+                label: `Bid: ${myAmount} pts on Ch. ${chapter.chapter_num}`,
+                deadline: chapter.bid_deadline,
+                urgent: new Date(chapter.bid_deadline).getTime() - now < 6 * 3600 * 1000,
+                kind: 'bid',
+                href: `/stories/${story.id}`,
+              })
+            }
+          }
+          // Stories I originated that currently have bidding open
+          for (const s of myStories) {
+            const biddingCh = s.chapters?.find((c: any) => c.status === 'bidding')
+            if (biddingCh?.bid_deadline) {
+              items.push({
+                story: s,
+                label: `Your story — bidding open on Ch. ${biddingCh.chapter_num}`,
+                deadline: biddingCh.bid_deadline,
+                urgent: new Date(biddingCh.bid_deadline).getTime() - now < 6 * 3600 * 1000,
+                kind: 'bid',
+                href: `/stories/${s.id}`,
+              })
+            }
+          }
+
+          items.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+
+          if (items.length === 0) return null
+
+          return (
+            <div className="mb-6">
+              <h2 className="text-base font-medium mb-3">Active countdowns</h2>
+              <div className="space-y-2">
+                {items.map((item, i) => {
+                  const msLeft = new Date(item.deadline).getTime() - now
+                  const expired = msLeft <= 0
+                  return (
+                    <Link
+                      key={i}
+                      href={item.href}
+                      className="card flex items-center justify-between gap-3 hover:border-brand-200 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">{item.story.title}</div>
+                        <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5">
+                          {item.kind === 'write' ? <Pencil size={11} /> : <Gavel size={11} />}
+                          {item.label}
+                        </div>
+                      </div>
+                      <div className={`flex items-center gap-1 text-sm font-medium tabular-nums flex-shrink-0 ${
+                        expired ? 'text-gray-400' : item.urgent ? 'text-red-500' : 'text-gray-600'
+                      }`}>
+                        <Clock size={13} /> {expired ? 'Ending…' : timeUntil(item.deadline)}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Chapters to write */}
         {writingChapters.length > 0 && (
