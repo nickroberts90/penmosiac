@@ -16,6 +16,8 @@ export interface Profile {
   suspended_until: string | null
   sample_done: boolean
   age_verified: boolean
+  theme: string
+  is_admin: boolean
   created_at: string
   updated_at: string
 }
