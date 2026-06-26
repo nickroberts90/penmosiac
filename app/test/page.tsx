@@ -64,6 +64,7 @@ export default function TestPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
     const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    if (!p?.is_admin) { window.location.href = '/'; return }
     setProfile(p)
     setLoading(false)
   }
@@ -378,7 +379,7 @@ export default function TestPage() {
     </div>
   )
 
-  const Btn = ({ onClick, children, danger = false }: { onClick: () => void; children: React.ReactNode; danger?: boolean }) => (
+  const Btn = ({ onClick, children, danger = false }: { onClick: () => Promise<void>; children: React.ReactNode; danger?: boolean }) => (
     <button
       onClick={() => run(onClick)}
       disabled={working}
