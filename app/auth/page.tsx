@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import Link from 'next/link'
 
 export default function AuthPage() {
   const router = useRouter()
@@ -89,6 +90,13 @@ export default function AuthPage() {
           <button onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="text-brand-600 hover:underline">
             {mode === 'login' ? 'Sign up' : 'Sign in'}
           </button>
+        </p>
+
+        <p className="text-xs text-center text-gray-400 mt-6 pt-4 border-t border-gray-100">
+          Just curious?{' '}
+          <Link href="/?browse=1" className="text-gray-500 hover:text-brand-600 hover:underline">
+            Read a few stories first
+          </Link>
         </p>
       </div>
     </div>

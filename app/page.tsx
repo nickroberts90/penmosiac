@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { Story, Profile, StoryTier, StoryTemplate } from '@/types'
 import { TIER_COLORS, timeUntil, isUrgent, truncate } from '@/lib/utils'
@@ -21,6 +22,7 @@ const GENRE_COLORS: Record<string, string> = {
 
 export default function DiscoverPage() {
   const supabase = createClient()
+  const router = useRouter()
   const [stories, setStories] = useState<Story[]>([])
   const [profile, setProfile] = useState<Profile | null>(null)
   const [templates, setTemplates] = useState<StoryTemplate[]>([])
@@ -28,18 +30,35 @@ export default function DiscoverPage() {
   const [creating, setCreating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showTutorial, setShowTutorial] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
-  useEffect(() => { loadData() }, [tierFilter])
+  useEffect(() => { checkAuthThenLoad() }, [tierFilter])
 
-  async function loadData() {
-    setLoading(true)
+  async function checkAuthThenLoad() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+
+    // Logged-out visitors go to sign up/in first.
+    // ?browse=1 lets them skip straight to a read-only story feed instead.
+    const params = new URLSearchParams(window.location.search)
+    const browsing = params.get('browse') === '1'
+
+    if (!user && !browsing) {
+      router.push('/auth')
+      return
+    }
+
+    setCheckingAuth(false)
+    loadData(user?.id)
+  }
+
+  async function loadData(userId?: string) {
+    setLoading(true)
+    if (userId) {
+      const { data: p } = await supabase.from('profiles').select('*').eq('id', userId).single()
       setProfile(p)
       // Show tutorial automatically for new users who haven't completed their sample
       if (p && !p.sample_done) {
-        const seen = localStorage.getItem(`tutorial_seen_${user.id}`)
+        const seen = localStorage.getItem(`tutorial_seen_${userId}`)
         if (!seen) setShowTutorial(true)
       }
     }
@@ -62,10 +81,27 @@ export default function DiscoverPage() {
 
   const showPrompts = !profile || !profile.sample_done
 
+  if (checkingAuth) {
+    return <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Loading…</div>
+  }
+
   return (
     <>
       <Navbar />
       <main className="max-w-5xl mx-auto px-4 py-6">
+
+        {/* Browsing banner for logged-out visitors who chose "just browsing" */}
+        {!profile && (
+          <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 mb-6 flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-sm font-medium text-brand-800">You're browsing as a guest</p>
+              <p className="text-xs text-brand-600 mt-0.5">Sign up to like chapters, bid on stories, and start writing.</p>
+            </div>
+            <Link href="/auth" className="btn btn-primary btn-sm flex-shrink-0">
+              Sign up free <ArrowRight size={13} />
+            </Link>
+          </div>
+        )}
 
         {/* Prompts section — shown to logged-out users and those without sample approval */}
         {showPrompts && templates.length > 0 && (
