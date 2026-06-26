@@ -50,6 +50,9 @@ export interface Chapter {
   rating_count: number
   bid_deadline: string | null
   write_deadline: string | null
+  draft_title: string | null
+  draft_content: string | null
+  draft_saved_at: string | null
   created_at: string
   updated_at: string
   // joined
